@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JUMP FOREVER</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;background:radial-gradient(circle at 50% 0,#294779,#0c1429 70%);color:#fff;font-family:system-ui,sans-serif}
+main{width:min(960px,100%)}header{text-align:center;margin-bottom:14px}h1{font-size:clamp(34px,7vw,60px);letter-spacing:5px;margin:0;text-shadow:0 0 24px #67e8ff}header p{color:#c5d7f5;margin:4px}
+.panel{background:#101d39;border:1px solid #5875aa;border-radius:20px;padding:14px;box-shadow:0 18px 55px #0008}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.stats,.modes{display:flex;gap:8px;flex-wrap:wrap}.stat{background:#203458;border-radius:10px;padding:8px 12px;font-weight:700}.stat b{color:#7cf1ff;margin-left:4px}
+button{cursor:pointer;border:1px solid #7596cc;border-radius:11px;background:#29436f;color:white;padding:10px 14px;font-weight:800}.modes button.active{background:#20b6d1;color:#061827;border-color:#a0f6ff}
+.stage{position:relative;overflow:hidden;border-radius:14px;background:#17294c}canvas{display:block;width:100%;height:auto;touch-action:manipulation}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:18px;background:#071126b8}.overlay.hide{display:none}.dialog{max-width:92%;padding:22px 28px;border-radius:18px;background:#14284e;border:1px solid #91b2ed;box-shadow:0 10px 40px #0009}.dialog h2{font-size:clamp(26px,5vw,40px);margin:0 0 8px}.dialog p{line-height:1.5;color:#d2e1fa}.primary{background:linear-gradient(135deg,#20bfd4,#557cf5);border:0;font-size:18px;padding:13px 28px}
+.setting-row{margin:16px 0}.setting-row label{display:flex;justify-content:space-between;gap:12px;font-weight:800}.setting-row label b{color:#7cf1ff}.setting-row input[type=range]{width:100%;margin-top:10px;accent-color:#35c8e5}.setting-note{font-size:12px!important;margin:4px 0!important}.setting-check{display:flex;align-items:center;gap:9px;font-weight:700}.setting-check input{width:18px;height:18px;accent-color:#35c8e5}.audio-title{margin:18px 0 8px;padding-top:12px;border-top:1px solid #49658f}.audio-row{margin:10px 0}.audio-row label{display:flex;justify-content:space-between;font-weight:800}.audio-row input[type=range]{width:100%;accent-color:#35c8e5}
+.shop-card{background:#203458;border:1px solid #5875aa;border-radius:13px;padding:12px}
+.shop-card h3{margin:0 0 6px;font-size:16px}.shop-card p{margin:0 0 10px;font-size:13px;color:#c5d7f5}
+.shop-card button{width:100%;padding:8px}.shop-card button:disabled{opacity:.5;cursor:default}
+.hint{text-align:center;color:#b6c8e9;font-size:13px;margin:12px 0 0}.mobile{display:none;margin-top:10px}.mobile button{width:100%;font-size:18px;background:#20b6d1;color:#071827}
+@media(max-width:650px){.bar{justify-content:center}.stats,.modes{justify-content:center}.mobile{display:block}.panel{padding:9px}body{padding:8px}}
+
+.auth-wrap{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:16px;background:radial-gradient(circle at 50% 0,#294779,#071126 75%)}
+.auth-wrap.hide{display:none}.auth-card{width:min(430px,96vw);padding:24px;border-radius:20px;background:#14284e;border:1px solid #91b2ed;box-shadow:0 18px 55px #000b}
+.auth-card h2{text-align:center;margin:0 0 8px}.auth-card p{color:#c5d7f5;font-size:13px;line-height:1.5}
+.auth-card label{display:block;margin:12px 0 5px;font-weight:800}.auth-card input{width:100%;padding:12px;border-radius:9px;border:1px solid #7596cc;background:#0c1933;color:white;font-size:16px;box-sizing:border-box}
+.auth-actions{display:flex;gap:8px;margin-top:16px}.auth-actions button{flex:1}.auth-error{min-height:20px;color:#ff9aa9!important}
+</style>
+</head>
+<body>
+<main><header><h1>JUMP FOREVER</h1><p>끝없이 점프하고 코인을 모아 최고 기록에 도전하라!</p></header>
+<section class="panel"><div style="display:flex;gap:10px;align-items:center"><b id="accountName">로그인 필요</b><span id="accountRole" style="color:#ffd95c"></span><button id="logoutBtn" style="display:none">로그아웃</button></div>
+<div class="bar"><div class="stats">
+<div class="stat">점수 <b id="score">0</b></div><div class="stat">코인 <b id="coins">0</b></div><div class="stat">목숨 <b id="lives">♥♥♥</b></div><div class="stat">최고 기록 <b id="best">0</b></div>
+</div><div class="modes"><button data-mode="easy" class="active">기본</button><button data-mode="normal">보통</button><button data-mode="hard">하드</button></div></div>
+<div class="stage"><canvas id="game" width="960" height="540"></canvas>
+<div class="overlay" id="overlay"><div class="dialog"><h2 id="title">준비됐어?</h2><p id="message">장애물을 뛰어넘고 코인을 모아봐!<br>SPACE / ↑ / W 또는 점프 버튼</p><button class="primary" id="start">게임 시작</button></div></div>
+</div><div class="mobile"><button id="jump">점프!</button></div>
+<div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px">
+ <button id="settingsOpen">⚙️ 게임 설정</button><button id="shopOpen">🛒 코인 상점</button>
+</div>
+<div id="settingsModal" class="overlay hide" style="position:fixed;z-index:11;background:#050b18dd">
+ <div class="dialog" style="width:min(520px,96vw);max-height:88vh;overflow:auto;text-align:left">
+  <h2 style="text-align:center">⚙️ 게임 설정</h2>
+  <p>히트박스 크기와 점프 높이를 직접 조절할 수 있어!</p>
+  <div class="setting-row">
+   <label for="hitWidth">히트박스 가로 크기 <b id="hitWidthValue">100%</b></label>
+   <input id="hitWidth" type="range" min="60" max="120" step="5" value="100">
+  </div>
+  <div class="setting-row">
+   <label for="hitHeight">히트박스 세로 크기 <b id="hitHeightValue">100%</b></label>
+   <input id="hitHeight" type="range" min="60" max="120" step="5" value="100">
+  </div>
+  <div class="setting-row">
+   <label for="gameSpeed">게임 속도 <b id="gameSpeedValue">100%</b></label>
+   <input id="gameSpeed" type="range" min="70" max="150" step="5" value="100">
+   <p class="setting-note">속도를 높이면 장애물이 더 빨리 움직이고 더 자주 나타나.</p>
+  </div>
+  <div class="setting-row">
+   <label for="jumpHeight">점프 높이 <b id="jumpHeightValue">기본</b></label>
+   <input id="jumpHeight" type="range" min="12" max="22" step="0.5" value="16.5">
+   <p class="setting-note">오른쪽으로 갈수록 더 높이 점프해.</p>
+  </div>
+  <label class="setting-check"><input id="showHitbox" type="checkbox"> 게임 중 히트박스 표시하기</label>
+  <h3 class="audio-title">🛠️ 구매한 업그레이드</h3>
+  <label class="setting-check"><input id="doubleJumpToggle" type="checkbox"> 더블 점프 사용하기</label>
+  <p class="setting-note" id="doubleJumpNote">코인 상점에서 더블 점프를 구매하면 켤 수 있어.</p>
+  <label class="setting-check"><input id="fiveLivesToggle" type="checkbox"> 체력 5칸 사용하기</label>
+  <p class="setting-note" id="fiveLivesNote">코인 상점에서 체력 확장을 구매하면 켤 수 있어.</p>
+  <h3 class="audio-title">🎵 음악 및 소리</h3>
+  <label class="setting-check"><input id="musicEnabled" type="checkbox" checked> 배경음악 켜기</label>
+  <div class="audio-row"><label for="musicVolume">배경음악 볼륨 <b id="musicVolumeValue">35%</b></label><input id="musicVolume" type="range" min="0" max="100" value="35"></div>
+  <div class="audio-row"><label for="sfxVolume">점프·코인·충돌 효과음 볼륨 <b id="sfxVolumeValue">55%</b></label><input id="sfxVolume" type="range" min="0" max="100" value="55"></div>
+  <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px">
+   <button id="settingsReset">기본값</button><button id="settingsRestart" style="background:#9d3152;border-color:#ff9bad">게임 다시 시작하기</button><button id="settingsClose" class="primary">저장하고 닫기</button>
+  </div>
+ </div>
+</div>
+<div id="shopModal" class="overlay hide" style="position:fixed;z-index:10;background:#050b18dd">
+ <div class="dialog" style="width:min(680px,96vw);max-height:88vh;overflow:auto">
+  <h2>🛒 코인 상점</h2>
+  <p>보유 코인: <b id="walletAmount">0</b>개 · 캐릭터, 점프 이펙트, 업그레이드를 구매할 수 있어!</p><p id="devShopNote" style="display:none;color:#ffe36e;font-weight:bold">★ 개발자 상점: 모든 상품 무료 해금!</p>
+  <div id="shopItems" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;text-align:left"></div>
+  <button id="shopClose" style="margin-top:16px">닫기</button>
+ </div>
+</div>
+<p class="hint">조작: SPACE · ↑ · W · 화면 터치 · 한 번 착지해야 다시 점프 가능 · 대시 없음</p>
+</section></main>
+
+<div class="auth-wrap" id="authScreen"><div class="auth-card">
+<h2>JUMP FOREVER</h2><p style="text-align:center">로그인하거나 새 계정을 만들어 게임 기록을 저장해!</p>
+<div id="loginFields">
+<label for="loginUser">아이디</label><input id="loginUser" maxlength="18" autocomplete="username" placeholder="아이디 입력">
+<label for="loginPass">비밀번호</label><input id="loginPass" type="password" maxlength="64" autocomplete="current-password" placeholder="비밀번호 입력">
+</div>
+<div id="signupFields" style="display:none">
+<label for="signupUser">아이디</label><input id="signupUser" maxlength="18" placeholder="영문 소문자·숫자·_ (3~18자)">
+<label for="signupPass">비밀번호</label><input id="signupPass" type="password" maxlength="64" placeholder="6자 이상">
+<label for="signupNick">닉네임</label><input id="signupNick" maxlength="12" placeholder="게임 닉네임">
+</div>
+<p class="auth-error" id="authError"></p>
+<div class="auth-actions"><button id="loginBtn" class="primary">로그인</button><button id="signupBtn">회원가입</button></div>
+<div class="auth-actions"><button id="backupExport">계정 백업 저장</button><button id="backupImport">백업 불러오기</button></div>
+<input id="backupFile" type="file" accept="application/json,.json" style="display:none">
+<p style="font-size:11px;margin-bottom:0">백업 파일에는 계정 정보와 게임 기록이 포함돼. 다른 사람에게 공유하지 마!</p>
+<p style="font-size:11px;margin-bottom:0">테스트용 계정은 현재 브라우저에 저장돼. 실제 보안 로그인과 기기 간 동기화에는 서버가 필요해.</p>
+</div></div>
+
+<script>
+(function(){
+'use strict';
+const canvas=document.getElementById('game');
+const ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);
+const settings={easy:{speed:3,spawn:92},normal:{speed:4,spawn:75},hard:{speed:5.3,spawn:35}};
+let mode='easy',running=false,settingsPaused=false,settingsWasRunning=false,frame=0,score=0,coins=0,lives=3,player,obstacles=[],pickups=[],particles=[],shield=0,magnet=0,spawnTimer=0,best=0,pace=3,raf=0,damageFlash=0,jumpBuffer=0;
+let wallet=0, owned=['default','none'], equipped={skin:'default',effect:'none'};
+let hitWidth=100,hitHeight=100,jumpPower=16.5,showHitbox=false,gameSpeed=100;
+let doubleJumpEnabled=true,fiveLivesEnabled=true;
+let audioCtx=null,musicTimer=null,musicStep=0,musicEnabled=true,musicVolume=0.35,sfxVolume=0.55,musicScene='menu';
+const shopCatalog=[
+ {id:'blue',type:'skin',name:'바다 캐릭터',desc:'시원한 파란색 캐릭터',price:120},
+ {id:'pink',type:'skin',name:'핑크 캐릭터',desc:'귀여운 분홍색 캐릭터',price:180},
+ {id:'gold',type:'skin',name:'골드 캐릭터',desc:'반짝이는 황금 캐릭터',price:350},
+ {id:'spark',type:'effect',name:'별빛 점프',desc:'점프할 때 별빛 파티클',price:100},
+ {id:'flame',type:'effect',name:'불꽃 점프',desc:'점프할 때 불꽃 파티클',price:160},
+ {id:'rainbow',type:'effect',name:'무지개 점프',desc:'점프할 때 무지개 파티클',price:250},
+ {id:'doubleJump',type:'upgrade',name:'더블 점프',desc:'공중에서 한 번 더 점프할 수 있어!',price:2500},
+ {id:'fiveLives',type:'upgrade',name:'체력 확장 (5칸)',desc:'최대 체력이 3칸에서 5칸으로 늘어나!',price:3000}
+];
+function shopStorageKey(part){return (jfUser?'jf-'+jfUser+'-':'jf-')+part;}
+function loadShop(){
+ try{
+  wallet=Number(localStorage.getItem(shopStorageKey('wallet'))||0);
+  const saved=JSON.parse(localStorage.getItem(shopStorageKey('owned'))||'["default","none"]');
+  owned=Array.isArray(saved)?saved:['default','none'];
+  const eq=JSON.parse(localStorage.getItem(shopStorageKey('equipped'))||'{"skin":"default","effect":"none"}');
+  equipped={skin:eq.skin||'default',effect:eq.effect||'none'};
+ }catch(e){wallet=0;owned=['default','none'];equipped={skin:'default',effect:'none'}}
+}
+function loadPowerToggles(){
+ try{
+  const saved=JSON.parse(localStorage.getItem(shopStorageKey('powerToggles'))||'{}');
+  doubleJumpEnabled=owned.includes('doubleJump')?(saved.doubleJump!==false):false;
+  fiveLivesEnabled=owned.includes('fiveLives')?(saved.fiveLives!==false):false;
+ }catch(e){doubleJumpEnabled=owned.includes('doubleJump');fiveLivesEnabled=owned.includes('fiveLives')}
+ syncPowerToggles();
+}
+function savePowerToggles(){
+ try{localStorage.setItem(shopStorageKey('powerToggles'),JSON.stringify({doubleJump:doubleJumpEnabled,fiveLives:fiveLivesEnabled}))}catch(e){}
+}
+function syncPowerToggles(){
+ const d=$('doubleJumpToggle'),h=$('fiveLivesToggle');if(!d||!h)return;
+ d.disabled=!owned.includes('doubleJump');h.disabled=!owned.includes('fiveLives');
+ d.checked=owned.includes('doubleJump')&&doubleJumpEnabled;h.checked=owned.includes('fiveLives')&&fiveLivesEnabled;
+ $('doubleJumpNote').textContent=owned.includes('doubleJump')?'구매 완료! 설정에서 언제든 켜고 끌 수 있어.':'코인 상점에서 더블 점프를 구매하면 켤 수 있어.';
+ $('fiveLivesNote').textContent=owned.includes('fiveLives')?'구매 완료! 설정에서 언제든 켜고 끌 수 있어.':'코인 상점에서 체력 확장을 구매하면 켤 수 있어.';
+}
+function saveShop(){
+ if(jfDev){wallet=999999999;owned=[...new Set([...owned,...shopCatalog.filter(x=>x.type!=='upgrade').map(x=>x.id),'default','none'])];try{localStorage.setItem(shopStorageKey('wallet'),'999999999');localStorage.setItem(shopStorageKey('owned'),JSON.stringify(owned));localStorage.setItem(shopStorageKey('equipped'),JSON.stringify(equipped))}catch(e){}return;}
+ try{localStorage.setItem(shopStorageKey('wallet'),String(wallet));localStorage.setItem(shopStorageKey('owned'),JSON.stringify(owned));localStorage.setItem(shopStorageKey('equipped'),JSON.stringify(equipped))}catch(e){}
+}
+// 코인은 획득/구매 즉시 저장하고, 탭을 숨기거나 닫을 때도 한 번 더 저장
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveShop()});
+window.addEventListener('pagehide',saveShop);
+function renderShop(){
+ $('walletAmount').textContent=jfDev?'∞':wallet;const note=$('devShopNote');if(note)note.style.display=jfDev?'block':'none';
+ $('shopItems').innerHTML=shopCatalog.map(item=>{
+  const active=equipped[item.type]===item.id, has=owned.includes(item.id);
+  const free=jfDev&&item.type!=='upgrade';
+  const action=item.type==='upgrade'?(has?'구매 완료':(free?'무료 해금':'구매')):(active?'장착 중':has?'장착':(free?'무료 구매':wallet>=item.price?'구매':'코인 부족'));
+  const priceText=free?'개발자 무료':(item.price+' 코인');
+  return `<div class="shop-card"><h3>${item.type==='skin'?'🧍':item.type==='upgrade'?'⬆️':'✨'} ${item.name}</h3><p>${item.desc}</p><p><b>${priceText}</b></p><button data-buy="${item.id}" ${((item.type==='upgrade'&&has)||(item.type!=='upgrade'&&active)||(!has&&!free&&wallet<item.price))?'disabled':''}>${action}</button></div>`;
+ }).join('');
+ $('shopItems').querySelectorAll('[data-buy]').forEach(btn=>btn.addEventListener('click',()=>{
+  const item=shopCatalog.find(v=>v.id===btn.dataset.buy);if(!item)return;
+  if(!owned.includes(item.id)){if(!jfDev&&wallet<item.price)return;if(item.type==='upgrade'&&!jfDev)wallet-=item.price;owned.push(item.id);if(item.id==='doubleJump')doubleJumpEnabled=true;if(item.id==='fiveLives')fiveLivesEnabled=true}
+  if(item.type!=='upgrade')equipped[item.type]=item.id;
+  saveShop();savePowerToggles();syncPowerToggles();renderShop();if(jfDev)wallet=999999999;hud();draw();
+ }));
+}
+
+// 오리지널 8비트/전자음악: 외부 음원 없이 Web Audio로 생성
+function ensureAudio(){
+ try{if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;audioCtx=new AC();}if(audioCtx.state==='suspended')audioCtx.resume();}catch(e){}
+}
+function tone(freq,duration=0.12,wave='square',volume=0.12,when=0){
+ if(!audioCtx||!freq)return;const t=audioCtx.currentTime+when;const osc=audioCtx.createOscillator(),gain=audioCtx.createGain();
+ osc.type=wave;osc.frequency.setValueAtTime(freq,t);gain.gain.setValueAtTime(0.0001,t);gain.gain.exponentialRampToValueAtTime(Math.max(0.0002,volume),t+0.012);gain.gain.exponentialRampToValueAtTime(0.0001,t+duration);
+ osc.connect(gain);gain.connect(audioCtx.destination);osc.start(t);osc.stop(t+duration+0.025);
+}
+// JUMP FOREVER 잔잔한 오리지널 배경음악: 메뉴와 플레이에서 같은 곡
+const jfLead=[523,0,659,0,784,0,659,0,587,0,659,0,784,0,659,0,523,0,587,0,659,0,587,0,494,0,587,0,659,0,523,0];
+const jfPad=[262,330,392,294,370,440,262,330];
+function setMusicScene(scene){
+ musicScene=scene;
+ if(!musicEnabled||!audioCtx||scene==='over'){stopMusic();return;}
+ if(musicTimer){clearInterval(musicTimer);musicTimer=null;}
+ musicStep=0;
+ const stepMs=60000/76/2;
+ musicTimer=setInterval(()=>{
+  if(!musicEnabled||!audioCtx)return;
+  const s=musicStep%32,lead=jfLead[s];
+  if(lead)tone(lead,0.34,'sine',musicVolume*0.022);
+  if(s%8===0)tone(jfPad[(s/8)%jfPad.length],0.72,'triangle',musicVolume*0.012);
+  musicStep++;
+ },stepMs);
+}
+function stopMusic(){if(musicTimer){clearInterval(musicTimer);musicTimer=null;}}
+function updateMusic(){
+ if(!musicEnabled||musicVolume<=0||musicScene==='over'){stopMusic();return;}
+ ensureAudio();
+ if(audioCtx&&!musicTimer)setMusicScene(running?'game':'menu');
+}
+function playSfx(kind){if(sfxVolume<=0)return;ensureAudio();if(!audioCtx)return;if(kind==='jump'){tone(560,0.075,'sine',sfxVolume*0.10);tone(760,0.09,'sine',sfxVolume*0.055,0.045);}else if(kind==='coin'){tone(990,0.07,'sine',sfxVolume*0.15);tone(1320,0.09,'sine',sfxVolume*0.12,0.065);}else if(kind==='hit'){tone(180,0.18,'sawtooth',sfxVolume*0.14);tone(110,0.22,'triangle',sfxVolume*0.12,0.08);}else if(kind==='over'){tone(392,0.22,'triangle',sfxVolume*0.12);tone(294,0.35,'triangle',sfxVolume*0.12,0.2);}}
+function loadAudioSettings(){try{const a=JSON.parse(localStorage.getItem('jf-audio-settings')||'{}');musicEnabled=a.musicEnabled!==false;musicVolume=Math.max(0,Math.min(1,Number(a.musicVolume??0.35)));sfxVolume=Math.max(0,Math.min(1,Number(a.sfxVolume??0.55)));}catch(e){}syncAudioUI();}
+function saveAudioSettings(){try{localStorage.setItem('jf-audio-settings',JSON.stringify({musicEnabled,musicVolume,sfxVolume}));}catch(e){}syncAudioUI();updateMusic();}
+function syncAudioUI(){const m=$('musicEnabled'),mv=$('musicVolume'),sv=$('sfxVolume');if(m)m.checked=musicEnabled;if(mv)mv.value=Math.round(musicVolume*100);if(sv)sv.value=Math.round(sfxVolume*100);if($('musicVolumeValue'))$('musicVolumeValue').textContent=Math.round(musicVolume*100)+'%';if($('sfxVolumeValue'))$('sfxVolumeValue').textContent=Math.round(sfxVolume*100)+'%';}
+
+function loadGameSettings(){
+ try{
+  const s=JSON.parse(localStorage.getItem('jf-game-settings')||'{}');
+  hitWidth=Math.max(60,Math.min(120,Number(s.hitWidth)||100));
+  hitHeight=Math.max(60,Math.min(120,Number(s.hitHeight)||100));
+  jumpPower=Math.max(12,Math.min(22,Number(s.jumpPower)||16.5));
+  showHitbox=!!s.showHitbox;
+  gameSpeed=Math.max(70,Math.min(150,Number(s.gameSpeed)||100));
+ }catch(e){hitWidth=100;hitHeight=100;jumpPower=16.5;showHitbox=false}
+ syncSettingsUI();
+}
+function saveGameSettings(){
+ try{localStorage.setItem('jf-game-settings',JSON.stringify({hitWidth,hitHeight,jumpPower,showHitbox,gameSpeed}))}catch(e){}
+}
+function syncSettingsUI(){
+ $('hitWidth').value=hitWidth;$('hitHeight').value=hitHeight;$('jumpHeight').value=jumpPower;$('showHitbox').checked=showHitbox;$('gameSpeed').value=gameSpeed;
+ $('hitWidthValue').textContent=hitWidth+'%';$('hitHeightValue').textContent=hitHeight+'%';
+ $('jumpHeightValue').textContent=jumpPower===16.5?'기본':(jumpPower>16.5?'높음':'낮음')+' ('+Math.round((jumpPower/16.5)*100)+'%)';
+ $('gameSpeedValue').textContent=gameSpeed+'%';
+}
+function readBest(){try{return Number(localStorage.getItem((jfUser?'jf-'+jfUser+'-':'jf-')+'best-'+mode)||0)}catch(e){return 0}}
+function writeBest(v){try{localStorage.setItem((jfUser?'jf-'+jfUser+'-':'jf-')+'best-'+mode,String(v))}catch(e){}}
+function hud(){
+ if(jfDev)wallet=999999999;$('score').textContent=Math.floor(score);$('coins').textContent=jfDev?'∞':wallet;
+ const maxLives=owned.includes('fiveLives')&&fiveLivesEnabled?5:3;$('lives').textContent='♥'.repeat(lives)+'♡'.repeat(Math.max(0,maxLives-lives));
+ if(Math.floor(score)>best){best=Math.floor(score);writeBest(best)}
+ $('best').textContent=best;
+}
+function reset(){
+ frame=0;score=0;coins=0;lives=owned.includes('fiveLives')&&fiveLivesEnabled?5:3;shield=0;magnet=0;spawnTimer=0;damageFlash=0;jumpBuffer=0;obstacles=[];pickups=[];particles=[];
+ player={x:145,y:420,vy:0,onGround:true,jumpCount:0};hud();
+}
+function rounded(x,y,w,h,r){
+ ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+function draw(){
+ const g=ctx;g.clearRect(0,0,960,540);
+ const sky=g.createLinearGradient(0,0,0,540);sky.addColorStop(0,'#172b58');sky.addColorStop(1,'#627ca7');g.fillStyle=sky;g.fillRect(0,0,960,540);
+ g.fillStyle='#ffe9a6';g.shadowColor='#ffe9a6';g.shadowBlur=35;g.beginPath();g.arc(770,105,48,0,Math.PI*2);g.fill();g.shadowBlur=0;
+ for(let i=0;i<45;i++){let x=((i*137-frame*.12)%1000+1000)%1000;g.fillStyle='#e2f0ff';g.globalAlpha=.35;g.fillRect(x,(i*71)%250,2,2)}g.globalAlpha=1;
+ for(let layer=0;layer<2;layer++){let base=430+layer*30;for(let i=0;i<12;i++){let x=((i*110-frame*(.2+layer*.15))%1100+1100)%1100-70,h=90+(i*47%140);g.fillStyle=layer?'#1b3157':'#2b4775';g.fillRect(x,base-h,75,h);g.fillStyle='#a5d7ef';for(let wy=base-h+15;wy<base-10;wy+=22)for(let wx=x+12;wx<x+65;wx+=22){g.globalAlpha=.35;g.fillRect(wx,wy,8,10)}g.globalAlpha=1}}
+ g.fillStyle='#19243d';g.fillRect(0,470,960,70);g.fillStyle='#344666';g.fillRect(0,470,960,9);g.fillStyle='#c2d3ee';for(let x=-(frame*pace)%100;x<960;x+=100)g.fillRect(x,505,48,5);
+ g.fillStyle='#111a2b66';g.beginPath();g.ellipse(player.x+5,468,35,8,0,0,Math.PI*2);g.fill();
+ g.save();g.translate(player.x,player.y);
+ if(magnet>0){g.save();g.globalAlpha=.45+.25*Math.sin(frame/7);g.strokeStyle='#ff75dc';g.lineWidth=3;g.setLineDash([7,7]);g.beginPath();g.arc(5,20,78,0,Math.PI*2);g.stroke();g.setLineDash([]);g.strokeStyle='#ffd2f2';g.lineWidth=2;g.beginPath();g.arc(5,20,68,0,Math.PI*2);g.stroke();g.restore()}
+ if(shield>0){g.save();g.globalAlpha=.72+.18*Math.sin(frame/5);g.strokeStyle='#55e6ff';g.lineWidth=4;g.shadowColor='#55e6ff';g.shadowBlur=20;g.beginPath();for(let i=0;i<6;i++){const a=-Math.PI/2+i*Math.PI/3,r=49;const x=Math.cos(a)*r,y=20+Math.sin(a)*r;if(i===0)g.moveTo(x,y);else g.lineTo(x,y)}g.closePath();g.stroke();g.fillStyle='rgba(65,205,255,.10)';g.fill();g.shadowBlur=0;g.restore()}
+ const skinColors={default:{body:'#243c6c',hair:'#49352f',face:'#e8b58c'},blue:{body:'#167da8',hair:'#153e72',face:'#a9e8f5'},pink:{body:'#d34f91',hair:'#74305f',face:'#ffd0df'},gold:{body:'#c28a18',hair:'#76500c',face:'#ffe2a0'}};
+ const skin=skinColors[equipped.skin]||skinColors.default;
+ g.fillStyle=skin.body;rounded(-24,5,48,42,12);g.fill();g.fillStyle=skin.face;rounded(-21,-27,42,38,12);g.fill();g.fillStyle=skin.hair;rounded(-22,-31,44,14,7);g.fill();g.fillStyle='#18243b';g.fillRect(-11,-11,5,5);g.fillRect(8,-11,5,5);g.fillStyle='#7dd9ec';g.fillRect(-18,15,36,8);
+ if(showHitbox){const hw=55*(hitWidth/100),hh=45*(hitHeight/100);g.strokeStyle='#ffef65';g.lineWidth=2;g.setLineDash([5,4]);g.strokeRect(2.5-hw/2,45-hh,hw,hh);g.setLineDash([])}
+ g.restore();
+ for(const o of obstacles){if(o.type==='spike'){g.fillStyle='#ff718b';g.shadowColor='#ff557d';g.shadowBlur=12;g.beginPath();g.moveTo(o.x,o.y+o.h);g.lineTo(o.x+o.w/2,o.y);g.lineTo(o.x+o.w,o.y+o.h);g.closePath();g.fill();g.shadowBlur=0}else{g.fillStyle='#8a9bb8';rounded(o.x,o.y,42,42,10);g.fill();g.fillStyle='#ff6c84';g.fillRect(o.x+10,o.y+14,5,5);g.fillRect(o.x+26,o.y+14,5,5)}}
+ for(const it of pickups){g.save();g.translate(it.x,it.y);if(it.type==='coin'){g.fillStyle='#ffd95c';g.shadowColor='#ffdb57';g.shadowBlur=18;g.beginPath();g.arc(0,0,13,0,Math.PI*2);g.fill();g.shadowBlur=0;g.fillStyle='#a76b12';g.font='bold 15px sans-serif';g.textAlign='center';g.fillText('$',0,5)}else if(it.type==='magnet'){
+    // Pink magnetic horseshoe with bright metal tips and magnetic sparks
+    const pulse=1+.08*Math.sin(frame/5);g.scale(pulse,pulse);g.save();g.rotate(-Math.PI/4);g.lineCap='round';g.lineJoin='round';
+    g.strokeStyle='#b92c91';g.lineWidth=17;g.shadowColor='#ff62d4';g.shadowBlur=20;g.beginPath();g.moveTo(-10,-12);g.lineTo(-10,5);g.quadraticCurveTo(-10,17,0,17);g.quadraticCurveTo(10,17,10,5);g.lineTo(10,-12);g.stroke();
+    g.shadowBlur=0;g.strokeStyle='#ff75dc';g.lineWidth=10;g.beginPath();g.moveTo(-10,-12);g.lineTo(-10,5);g.quadraticCurveTo(-10,17,0,17);g.quadraticCurveTo(10,17,10,5);g.lineTo(10,-12);g.stroke();
+    g.fillStyle='#f4f7ff';g.fillRect(-15,-17,10,9);g.fillRect(5,-17,10,9);g.fillStyle='#8a4a86';g.fillRect(-12,-15,4,5);g.fillRect(8,-15,4,5);g.restore();
+    g.strokeStyle='#ffd5f4';g.lineWidth=2;g.beginPath();g.arc(-17,-15,4,Math.PI*.2,Math.PI*1.3);g.arc(17,-15,4,Math.PI*1.7,Math.PI*.8,true);g.stroke();
+  }else{
+    // Shield power-up: blue crystal shield, deliberately different from the pink magnet
+    const pulse=1+.06*Math.sin(frame/6);g.scale(pulse,pulse);g.shadowColor='#42dfff';g.shadowBlur=18;g.fillStyle='#1479b8';g.strokeStyle='#b9f7ff';g.lineWidth=3;g.beginPath();g.moveTo(0,-20);g.lineTo(17,-13);g.lineTo(15,5);g.quadraticCurveTo(12,16,0,22);g.quadraticCurveTo(-12,16,-15,5);g.lineTo(-17,-13);g.closePath();g.fill();g.stroke();g.shadowBlur=0;
+    g.fillStyle='#baf8ff';g.beginPath();g.moveTo(0,-12);g.lineTo(9,-8);g.lineTo(8,4);g.lineTo(0,13);g.lineTo(-8,4);g.lineTo(-9,-8);g.closePath();g.fill();g.strokeStyle='#eaffff';g.lineWidth=2;g.beginPath();g.moveTo(0,-7);g.lineTo(0,9);g.stroke();
+  }g.restore()}
+
+ for(const p of particles){g.globalAlpha=p.life/25;g.fillStyle=p.color;g.fillRect(p.x,p.y,5,5)}g.globalAlpha=1;g.fillStyle='#fff';g.font='bold 18px system-ui';g.fillText(mode.toUpperCase()+' MODE',24,35);
+ if(damageFlash>0){
+   const alpha=Math.min(.42,damageFlash/28);
+   g.fillStyle='rgba(255,35,65,'+alpha+')';g.fillRect(0,0,960,540);
+   g.strokeStyle='rgba(255,65,90,'+(alpha*2)+')';g.lineWidth=16;g.strokeRect(8,8,944,524);
+ }
+}
+function burst(x,y,color){for(let i=0;i<10;i++)particles.push({x,y,vx:(Math.random()-.5)*5,vy:(Math.random()-.7)*5,life:25,color})}
+function spawn(){
+ const x=1000, hard=mode==='hard';
+ // Pattern variety: single obstacles, pairs, and mixed combinations.
+ const roll=Math.random();
+ const patterns=[
+   [{dx:0,type:'spike'}],
+   [{dx:0,type:'bot'}],
+   [{dx:0,type:'spike'},{dx:105,type:'bot'}],
+   [{dx:0,type:'bot'},{dx:115,type:'spike'}],
+   [{dx:0,type:'spike'},{dx:165,type:'spike'}]
+ ];
+ let choices=patterns.slice(0, hard?5:4);
+ let pattern=choices[Math.floor(Math.random()*choices.length)];
+ if(!hard && pattern.length>1 && Math.random()<.38) pattern=patterns[Math.floor(Math.random()*2)];
+ for(const item of pattern){
+   obstacles.push({x:x+item.dx,y:438,w:42,h:42,type:item.type});
+ }
+ // Pickups are less common; shields and magnets are especially rare.
+ if(Math.random()<.58){
+   const pickupX=x+105+Math.random()*125;
+   const roll=Math.random();
+   if(roll<.92) pickups.push({x:pickupX,y:305+Math.random()*95,type:'coin'});
+   else if(roll<.975) pickups.push({x:pickupX,y:345,type:'shield'});
+   else pickups.push({x:pickupX,y:345,type:'magnet'});
+ }
+}
+function gameOver(){
+ running=false;cancelAnimationFrame(raf);musicScene='over';stopMusic();playSfx('over');$('title').textContent='게임 오버!';$('message').innerHTML='최종 점수 <b>'+Math.floor(score)+'</b> · 코인 <b>'+coins+'</b><br>다시 도전해볼까?';$('start').textContent='다시 시작';$('overlay').classList.remove('hide');
+}
+function startGame(){
+ ensureAudio();cancelAnimationFrame(raf);settingsPaused=false;settingsWasRunning=false;$('settingsModal').classList.add('hide');reset();running=true;musicScene='game';updateMusic();$('title').textContent='준비됐어?';$('start').textContent='게임 시작';$('overlay').classList.add('hide');draw();raf=requestAnimationFrame(tick);
+}
+function emitJumpEffect(){
+ const effect=equipped.effect;
+ if(effect==='none')return;
+ const palette={spark:['#fff2a8','#7cecff'],flame:['#ff9a42','#ff4b38'],rainbow:['#ff6bd6','#68eaff','#ffe36e','#8cff8c']}[effect]||['#fff'];
+ for(let i=0;i<12;i++)burst(player.x+(Math.random()-.5)*30,player.y+40,palette[i%palette.length]);
+}
+function jump(){
+ if(!running)return;
+ jumpBuffer=9;
+ if(player.onGround){player.jumpCount=1;player.vy=-jumpPower;player.onGround=false;jumpBuffer=0;emitJumpEffect();playSfx('jump');}
+ else if(owned.includes('doubleJump')&&doubleJumpEnabled&&player.jumpCount<2){player.jumpCount=2;player.vy=-jumpPower*0.92;jumpBuffer=0;emitJumpEffect();playSfx('jump');}
+}
+function tick(){
+ if(!running||settingsPaused)return;
+ frame++;if(damageFlash>0)damageFlash--;if(shield>0)shield--;if(magnet>0)magnet--;const cfg=settings[mode];pace=(cfg.speed+(mode==='hard'?Math.min(3.5,score/420):Math.min(2,score/700)))*(gameSpeed/100);score+=.12*pace;
+ player.vy+=.72;player.y+=player.vy;
+ if(player.y>=420){
+   player.y=420;player.vy=0;player.onGround=true;player.jumpCount=0;
+   if(jumpBuffer>0){player.vy=-jumpPower;player.onGround=false;jumpBuffer=0;emitJumpEffect();playSfx('jump')}
+ }
+ if(jumpBuffer>0)jumpBuffer--;
+ // A new stage begins every 100 score points. Obstacles spawn more often
+ // at higher stages, with a cap to keep the game playable.
+ const stage=Math.floor(score/100);
+ spawnTimer++;let interval=cfg.spawn*(.82+Math.random()*.48)/(gameSpeed/100);
+ if(mode==='hard')interval=Math.max(34,35+Math.random()*25-Math.min(4,score/300))/(gameSpeed/100);
+ interval*=1.15;
+ interval/=Math.min(1.8,1+stage*.08);
+ if(spawnTimer>=interval){spawn();spawnTimer=0}
+ obstacles.forEach(o=>o.x-=pace);pickups.forEach(o=>o.x-=pace);
+ if(magnet>0){for(const p of pickups){if(p.type==='coin'){const dx=(player.x+5)-p.x,dy=(player.y+20)-p.y,dist=Math.hypot(dx,dy);if(dist<210&&dist>1){p.x+=dx/dist*6;p.y+=dy/dist*6;}}}}
+ obstacles=obstacles.filter(o=>o.x>-80);pickups=pickups.filter(o=>o.x>-40);
+ const hbW=55*(hitWidth/100),hbH=45*(hitHeight/100);
+ const hb={left:player.x+2.5-hbW/2,right:player.x+2.5+hbW/2,top:player.y+45-hbH,bottom:player.y+45};
+ for(const o of obstacles){if(!o.hit&&hb.right>o.x+5&&hb.left<o.x+o.w-5&&hb.bottom>o.y&&hb.top<o.y+o.h){o.hit=true;if(shield>0){burst(o.x,o.y,'#7cf1ff')}else{lives--;damageFlash=18;burst(player.x,player.y,'#ff315c');playSfx('hit');if(lives<=0){hud();gameOver();return}}}}
+ for(const it of pickups){if(!it.got&&Math.hypot(player.x+5-it.x,player.y+20-it.y)<34){it.got=true;if(it.type==='coin'){coins++;wallet++;saveShop();score+=12;burst(it.x,it.y,'#ffe36e');playSfx('coin')}else if(it.type==='shield'){shield=300;burst(it.x,it.y,'#7cf1ff')}else{magnet=300;burst(it.x,it.y,'#ff75dc')}}}
+ pickups=pickups.filter(i=>!i.got);particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.12;p.life--});particles=particles.filter(p=>p.life>0);hud();draw();raf=requestAnimationFrame(tick);
+}
+
+const jfAccountsKey='jf-accounts-v1';let jfUser=null,jfDev=false;
+function jfAccounts(){try{return JSON.parse(localStorage.getItem(jfAccountsKey)||'{}')}catch(e){return {}}}
+
+function jfExportBackup(){
+ try{
+  const data={format:'JUMP_FOREVER_BACKUP',version:1,createdAt:new Date().toISOString(),items:{}};
+  for(let i=0;i<localStorage.length;i++){
+   const k=localStorage.key(i);
+   if(k && (k.startsWith('jf-') || k==='jf-accounts-v1')) data.items[k]=localStorage.getItem(k);
+  }
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='JUMP_FOREVER_계정백업.json';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  document.getElementById('authError').textContent='백업 파일을 저장했어! 안전한 곳에 보관해 줘.';
+ }catch(e){document.getElementById('authError').textContent='백업 저장에 실패했어.';}
+}
+function jfImportBackup(file){
+ if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   const data=JSON.parse(String(reader.result||''));
+   if(data.format!=='JUMP_FOREVER_BACKUP'||!data.items||typeof data.items!=='object')throw new Error('invalid');
+   const keys=Object.keys(data.items);
+   if(!keys.length||keys.some(k=>!(k.startsWith('jf-')||k==='jf-accounts-v1')))throw new Error('invalid');
+   if(!confirm('이 브라우저의 JUMP FOREVER 데이터를 백업 파일 내용으로 복원할까? 같은 이름의 데이터는 덮어써.'))return;
+   keys.forEach(k=>{if(typeof data.items[k]==='string')localStorage.setItem(k,data.items[k]);});
+   document.getElementById('authError').textContent='복원 완료! 페이지를 새로고침한 뒤 로그인해 줘.';
+  }catch(e){document.getElementById('authError').textContent='올바른 JUMP FOREVER 백업 파일이 아니야.';}
+ };
+ reader.readAsText(file);
+}
+function jfAuthMode(signup){
+ document.getElementById('signupFields').style.display=signup?'block':'none';
+ document.getElementById('loginFields').style.display=signup?'none':'block';
+ document.getElementById('loginBtn').style.display=signup?'none':'block';
+ document.getElementById('signupBtn').textContent=signup?'계정 만들기':'회원가입';
+ document.getElementById('authError').textContent='';
+}
+function jfEnter(user,a){
+ ensureAudio();if(running){running=false;cancelAnimationFrame(raf)}
+ jfUser=user;jfDev=(user.toLowerCase()==='shade');
+ loadShop();loadPowerToggles();if(jfDev){wallet=999999999;owned=[...new Set([...owned,...shopCatalog.filter(x=>x.type!=='upgrade').map(x=>x.id),'default','none'])];saveShop();}best=readBest();
+ document.getElementById('authScreen').classList.add('hide');
+ const name=document.getElementById('accountName');if(name)name.textContent=a.nick;
+ const role=document.getElementById('accountRole');if(role)role.textContent=jfDev?'★ 개발자':'';
+ const out=document.getElementById('logoutBtn');if(out)out.style.display='inline-block';
+ if(jfDev){wallet=999999999;saveShop();}else{try{wallet=Number(localStorage.getItem('jf-'+user+'-wallet')||wallet||0)}catch(e){}}
+ document.getElementById('best').textContent=best;hud();musicScene='menu';updateMusic();if(typeof draw==='function')draw();
+}
+function jfSignup(){
+ const user=document.getElementById('signupUser').value.trim().toLowerCase();
+ const pass=document.getElementById('signupPass').value;
+ const nick=document.getElementById('signupNick').value.trim();
+ const err=document.getElementById('authError'),db=jfAccounts();
+ if(!/^[a-z0-9_]{3,18}$/.test(user)){err.textContent='아이디는 영문 소문자·숫자·_ 3~18자로 입력해 줘.';return}
+ if(pass.length<6){err.textContent='비밀번호는 6자 이상이어야 해.';return}
+ if(!nick||nick.length>12){err.textContent='닉네임은 1~12자로 입력해 줘.';return}
+ if(db[user]){err.textContent='이미 사용 중인 아이디야.';return}
+ if(Object.values(db).some(x=>x.nick.toLowerCase()===nick.toLowerCase())){err.textContent='이미 사용 중인 닉네임이야.';return}
+ const dev=(user==='shade');
+ db[user]={pass,nick,dev};localStorage.setItem(jfAccountsKey,JSON.stringify(db));jfEnter(user,db[user]);
+}
+function jfLogin(){
+ const user=document.getElementById('loginUser').value.trim().toLowerCase();
+ const pass=document.getElementById('loginPass').value,a=jfAccounts()[user];
+ if(!a||a.pass!==pass){document.getElementById('authError').textContent='아이디 또는 비밀번호를 확인해 줘.';return}
+ if(user==='shade'&&!a.dev){a.dev=true;const db=jfAccounts();db[user]=a;localStorage.setItem(jfAccountsKey,JSON.stringify(db));}
+ jfEnter(user,a);
+}
+document.getElementById('loginBtn').addEventListener('click',jfLogin);
+document.getElementById('backupExport').addEventListener('click',jfExportBackup);
+document.getElementById('backupImport').addEventListener('click',()=>document.getElementById('backupFile').click());
+document.getElementById('backupFile').addEventListener('change',e=>{jfImportBackup(e.target.files&&e.target.files[0]);e.target.value='';});
+document.getElementById('signupBtn').addEventListener('click',()=>{
+ if(document.getElementById('signupFields').style.display==='block')jfSignup();else jfAuthMode(true);
+});
+document.querySelectorAll('#loginFields input').forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')jfLogin()}));
+document.querySelectorAll('#signupFields input').forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')jfSignup()}));
+const jfLogout=document.getElementById('logoutBtn');
+if(jfLogout)jfLogout.addEventListener('click',()=>{saveShop();running=false;cancelAnimationFrame(raf);jfUser=null;jfDev=false;document.getElementById('accountName').textContent='로그인 필요';document.getElementById('accountRole').textContent='';jfLogout.style.display='none';document.getElementById('authScreen').classList.remove('hide');jfAuthMode(false);document.getElementById('loginPass').value='';});
+
+$('start').addEventListener('click',startGame);
+$('shopOpen').addEventListener('click',()=>{renderShop();$('shopModal').classList.remove('hide')});
+$('settingsOpen').addEventListener('click',()=>{if($('settingsModal').classList.contains('hide')){settingsWasRunning=running;if(running){settingsPaused=true;cancelAnimationFrame(raf);}}$('settingsModal').classList.remove('hide');syncSettingsUI();syncPowerToggles()});
+$('settingsClose').addEventListener('click',()=>{$('settingsModal').classList.add('hide');saveGameSettings();if(settingsWasRunning&&running){settingsPaused=false;raf=requestAnimationFrame(tick);}settingsWasRunning=false;draw()});
+$('settingsRestart').addEventListener('click',()=>{startGame()});
+$('doubleJumpToggle').addEventListener('change',e=>{if(!owned.includes('doubleJump')){e.target.checked=false;return;}doubleJumpEnabled=e.target.checked;savePowerToggles();});
+$('fiveLivesToggle').addEventListener('change',e=>{if(!owned.includes('fiveLives')){e.target.checked=false;return;}fiveLivesEnabled=e.target.checked;if(fiveLivesEnabled)lives=Math.min(5,lives+2);else lives=Math.min(lives,3);savePowerToggles();hud();draw();});
+$('settingsReset').addEventListener('click',()=>{hitWidth=100;hitHeight=100;jumpPower=16.5;showHitbox=false;gameSpeed=100;syncSettingsUI();saveGameSettings();draw()});
+$('hitWidth').addEventListener('input',e=>{hitWidth=Number(e.target.value);syncSettingsUI();saveGameSettings();draw()});
+$('hitHeight').addEventListener('input',e=>{hitHeight=Number(e.target.value);syncSettingsUI();saveGameSettings();draw()});
+$('jumpHeight').addEventListener('input',e=>{jumpPower=Number(e.target.value);syncSettingsUI();saveGameSettings()});
+$('gameSpeed').addEventListener('input',e=>{gameSpeed=Number(e.target.value);syncSettingsUI();saveGameSettings()});
+$('showHitbox').addEventListener('change',e=>{showHitbox=e.target.checked;saveGameSettings();draw()});
+$('musicEnabled').addEventListener('change',e=>{musicEnabled=e.target.checked;saveAudioSettings()});
+$('musicVolume').addEventListener('input',e=>{musicVolume=Number(e.target.value)/100;saveAudioSettings()});
+$('sfxVolume').addEventListener('input',e=>{sfxVolume=Number(e.target.value)/100;saveAudioSettings()});
+$('shopClose').addEventListener('click',()=>$('shopModal').classList.add('hide'));
+$('jump').addEventListener('click',jump);
+canvas.addEventListener('pointerdown',jump);
+window.addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyW'].includes(e.code)){e.preventDefault();if(!e.repeat)jump()}});
+document.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{if(running)return;mode=btn.dataset.mode;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===btn));best=readBest();$('best').textContent=best;reset();draw()}));
+loadShop();loadPowerToggles();loadGameSettings();loadAudioSettings();best=readBest();$('best').textContent=best;reset();draw();
+})();
+</script>
+
+</body></html>
